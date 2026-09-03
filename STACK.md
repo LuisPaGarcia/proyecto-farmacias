@@ -1,0 +1,1 @@
+Consiera que usaremos SQLite, React, Cloudflare workers y cualquier servicio de cloudflare para crear esto. Mantenlo de forma simple, concisa y clara. 
