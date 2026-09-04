@@ -1,0 +1,45 @@
+html {
+  min-width: 320px;
+}
+
+body {
+  background: var(--bs-tertiary-bg);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Bootstrap no ofrece una utilidad directa para altura minima solo en desktop. */
+.app-shell,
+.app-sidebar {
+  min-height: 100vh;
+}
+
+/* Garantiza targets de navegacion comodos sin crear un componente paralelo. */
+.app-nav-link {
+  min-height: 44px;
+}
+
+/* Bootstrap nav-pills usa primary azul por defecto; esto alinea el activo al acento del DESIGN.md. */
+.app-sidebar .nav-pills {
+  --bs-nav-pills-link-active-bg: var(--bs-warning);
+  --bs-nav-pills-link-active-color: var(--bs-dark);
+}
+
+/* Mantiene las tarjetas de metricas estables cuando cambian los datos. */
+.app-metric-card {
+  min-height: 9rem;
+}
+
+/* Mejora la lectura vertical de cantidades, IDs y moneda en pantallas auditables. */
+.app-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 991.98px) {
+  .app-shell,
+  .app-sidebar {
+    min-height: auto;
+  }
+}

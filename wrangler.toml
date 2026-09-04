@@ -1,8 +1,15 @@
 name = "farmacias-alejandro"
-compatibility_date = "2026-08-28"
+compatibility_date = "2026-09-03"
+main = "src/worker.js"
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "farmacias-alejandro-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "12618237-8881-4b1a-9f3b-5348e23da29e"
 preview_database_id = "DB"

@@ -1,7 +1,5 @@
 PRAGMA foreign_keys = ON;
 
-BEGIN TRANSACTION;
-
 CREATE TABLE IF NOT EXISTS proveedor (
   id_proveedor INTEGER PRIMARY KEY,
   nombre TEXT NOT NULL,
@@ -426,5 +424,3 @@ INSERT OR IGNORE INTO rol (nombre_rol, descripcion) VALUES
   ('CAJERO', 'Gestion de ventas, pagos y caja'),
   ('INVENTARIO', 'Gestion de inventario, lotes y transferencias'),
   ('CALL_CENTER', 'Consulta y creacion de pedidos para entrega');
-
-COMMIT;
