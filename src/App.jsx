@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import departamentos from "../constantes/departamentos.json";
 import municipiosPorDepartamento from "../constantes/municipios.json";
+import ClientsView from "./ClientsView";
+import InventoryMovementsView from "./InventoryMovementsView";
+import InventoryView from "./InventoryView";
+import OrdersView from "./OrdersView";
+import TraceabilityView from "./TraceabilityView";
+import TransfersView from "./TransfersView";
 
 const fallbackSummary = {
   sucursalesActivas: 0,
@@ -18,22 +24,32 @@ const emptySucursalForm = {
   municipio: "",
   telefono: "",
   centro_comercial_id: "",
-  gasolinera_id: "",
-  estado: "ACTIVA"
+  gasolinera_id: ""
+};
+
+const emptyMedicamentoForm = {
+  nombre: "",
+  presentacion: "",
+  unidad: "UNIDAD",
+  requiere_receta: false
 };
 
 const modules = [
-  { label: "Sucursales", status: "Vista lista", detail: "Farmacias y stands" },
-  { label: "Inventario", status: "Base creada", detail: "Stock por lote" },
-  { label: "Pedidos", status: "Siguiente", detail: "Ventas y call center" },
+  { label: "Sucursales", status: "Vista completa", detail: "Farmacias y stands" },
+  { label: "Medicamentos", status: "Vista completa", detail: "Catalogo maestro" },
+  { label: "Proveedores y lotes", status: "Vista completa", detail: "Trazabilidad" },
+  { label: "Inventario", status: "Vista completa", detail: "Stock por lote" },
+  { label: "Movimientos", status: "Vista completa", detail: "Auditoria de inventario" },
+  { label: "Transferencias", status: "Vista completa", detail: "Traslados entre sucursales" },
+  { label: "Clientes", status: "Vista completa", detail: "Contacto y entregas" },
+  { label: "Pedidos", status: "Vista completa", detail: "Ventas y call center" },
   { label: "Caja", status: "Siguiente", detail: "Ingresos y egresos" }
 ];
 
 const tasks = [
-  "Crear vista de medicamentos",
-  "Crear endpoints REST para medicamentos",
-  "Crear vista de proveedores y lotes",
-  "Validar stock antes de reservar o transferir"
+  "Crear vista de pagos",
+  "Crear endpoints REST para pagos",
+  "Registrar movimientos de inventario para pedidos confirmados"
 ];
 
 const sucursalTypes = [
@@ -42,10 +58,32 @@ const sucursalTypes = [
   { value: "GASOLINERA", label: "Gasolinera" }
 ];
 
-const sucursalStates = [
-  { value: "ACTIVA", label: "Activa" },
-  { value: "INACTIVA", label: "Inactiva" }
+const medicamentoUnits = [
+  "UNIDAD",
+  "CAJA",
+  "BLISTER",
+  "FRASCO",
+  "TUBO",
+  "SOBRE",
+  "AMPOLLA"
 ];
+
+function getHashView() {
+  const hash = window.location.hash.replace("#", "");
+
+  return [
+    "sucursales",
+    "medicamentos",
+    "proveedores-lotes",
+    "inventario",
+    "movimientos-inventario",
+    "transferencias",
+    "clientes",
+    "pedidos"
+  ].includes(hash)
+    ? hash
+    : "dashboard";
+}
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("es-GT", {
@@ -59,6 +97,10 @@ function formatSucursalId(id) {
   return `SUC-${String(id || 0).padStart(3, "0")}`;
 }
 
+function formatMedicamentoId(id) {
+  return `MED-${String(id || 0).padStart(3, "0")}`;
+}
+
 function toNullableNumber(value) {
   return value ? Number(value) : null;
 }
@@ -67,10 +109,15 @@ function statusBadgeClass(state) {
   return state === "ACTIVA" ? "text-bg-success" : "text-bg-secondary";
 }
 
+function activeStatusBadgeClass(state) {
+  return state === "ACTIVO" ? "text-bg-success" : "text-bg-secondary";
+}
+
 function App() {
-  const [activeView, setActiveView] = useState(() =>
-    window.location.hash === "#sucursales" ? "sucursales" : "dashboard"
-  );
+  const [activeView, setActiveView] = useState(getHashView);
+  const [routeResetKey, setRouteResetKey] = useState(0);
+  const [sucursalView, setSucursalView] = useState("list");
+  const [medicamentoView, setMedicamentoView] = useState("list");
   const [summary, setSummary] = useState(fallbackSummary);
   const [apiState, setApiState] = useState("Cargando API");
   const [apiDetail, setApiDetail] = useState("Conectando con /api/health");
@@ -85,6 +132,19 @@ function App() {
   const [formErrors, setFormErrors] = useState([]);
   const [formMessage, setFormMessage] = useState("");
   const [formSaving, setFormSaving] = useState(false);
+  const [sucursalActionError, setSucursalActionError] = useState("");
+  const [sucursalActionSaving, setSucursalActionSaving] = useState("");
+  const [medicamentos, setMedicamentos] = useState([]);
+  const [medicamentosLoading, setMedicamentosLoading] = useState(true);
+  const [medicamentosError, setMedicamentosError] = useState("");
+  const [selectedMedicamentoId, setSelectedMedicamentoId] = useState(null);
+  const [editingMedicamentoId, setEditingMedicamentoId] = useState(null);
+  const [medicamentoForm, setMedicamentoForm] = useState(emptyMedicamentoForm);
+  const [medicamentoFormError, setMedicamentoFormError] = useState("");
+  const [medicamentoFormErrors, setMedicamentoFormErrors] = useState([]);
+  const [medicamentoFormSaving, setMedicamentoFormSaving] = useState(false);
+  const [medicamentoActionError, setMedicamentoActionError] = useState("");
+  const [medicamentoActionSaving, setMedicamentoActionSaving] = useState("");
 
   const municipiosDisponibles = municipiosPorDepartamento[sucursalForm.departamento] || [];
 
@@ -101,13 +161,34 @@ function App() {
       }
 
       setSucursales(result.data || []);
-      setSelectedSucursalId((currentId) => currentId || result.data?.[0]?.id_sucursal || null);
     } catch (error) {
       setSucursales([]);
       setSelectedSucursalId(null);
       setSucursalesError(error.message || "No fue posible leer sucursales.");
     } finally {
       setSucursalesLoading(false);
+    }
+  }
+
+  async function loadMedicamentos() {
+    setMedicamentosLoading(true);
+    setMedicamentosError("");
+
+    try {
+      const response = await fetch("/api/medicamentos");
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.message || "No fue posible leer medicamentos.");
+      }
+
+      setMedicamentos(result.data || []);
+    } catch (error) {
+      setMedicamentos([]);
+      setSelectedMedicamentoId(null);
+      setMedicamentosError(error.message || "No fue posible leer medicamentos.");
+    } finally {
+      setMedicamentosLoading(false);
     }
   }
 
@@ -140,6 +221,7 @@ function App() {
 
     loadDashboard();
     loadSucursales();
+    loadMedicamentos();
 
     return () => {
       isMounted = false;
@@ -148,7 +230,16 @@ function App() {
 
   useEffect(() => {
     function handleHashChange() {
-      setActiveView(window.location.hash === "#sucursales" ? "sucursales" : "dashboard");
+      const nextView = getHashView();
+      setActiveView(nextView);
+
+      if (nextView === "sucursales") {
+        setSucursalView("list");
+      }
+
+      if (nextView === "medicamentos") {
+        setMedicamentoView("list");
+      }
     }
 
     window.addEventListener("hashchange", handleHashChange);
@@ -204,9 +295,29 @@ function App() {
     [selectedSucursalId, sucursales]
   );
 
+  const selectedMedicamento = useMemo(
+    () =>
+      medicamentos.find((medicamento) => medicamento.id_medicamento === selectedMedicamentoId) ||
+      null,
+    [selectedMedicamentoId, medicamentos]
+  );
+
   function navigateTo(view) {
     setActiveView(view);
-    window.location.hash = view === "sucursales" ? "sucursales" : "dashboard";
+    window.location.hash = view === "dashboard" ? "dashboard" : view;
+    setRouteResetKey((currentKey) => currentKey + 1);
+
+    if (view === "sucursales") {
+      setSucursalView("list");
+      setSelectedSucursalId(null);
+      resetSucursalForm();
+    }
+
+    if (view === "medicamentos") {
+      setMedicamentoView("list");
+      setSelectedMedicamentoId(null);
+      resetMedicamentoForm();
+    }
   }
 
   function updateSucursalForm(field, value) {
@@ -234,9 +345,38 @@ function App() {
     setFormMessage("");
   }
 
+  function showSucursalList() {
+    setSucursalView("list");
+    setSelectedSucursalId(null);
+    setSucursalActionError("");
+    resetSucursalForm();
+  }
+
+  function showNewSucursalForm() {
+    setSelectedSucursalId(null);
+    setSucursalActionError("");
+    resetSucursalForm();
+    setSucursalView("form");
+  }
+
+  function showSucursalDetail(sucursal) {
+    setSelectedSucursalId(sucursal.id_sucursal);
+    setSucursalActionError("");
+    resetSucursalForm();
+    setSucursalView("detail");
+  }
+
+  function cancelSucursalForm() {
+    const nextView = editingSucursalId && selectedSucursal ? "detail" : "list";
+    resetSucursalForm();
+    setSucursalView(nextView);
+  }
+
   function editSucursal(sucursal) {
     setEditingSucursalId(sucursal.id_sucursal);
     setSelectedSucursalId(sucursal.id_sucursal);
+    setSucursalView("form");
+    setSucursalActionError("");
     setFormError("");
     setFormErrors([]);
     setFormMessage("");
@@ -248,8 +388,7 @@ function App() {
       municipio: sucursal.municipio || "",
       telefono: sucursal.telefono || "",
       centro_comercial_id: sucursal.centro_comercial_id || "",
-      gasolinera_id: sucursal.gasolinera_id || "",
-      estado: sucursal.estado || "ACTIVA"
+      gasolinera_id: sucursal.gasolinera_id || ""
     });
   }
 
@@ -286,14 +425,172 @@ function App() {
       }
 
       await loadSucursales();
-      setSelectedSucursalId(result.data?.id_sucursal || editingSucursalId);
+      setSelectedSucursalId(null);
+      setSucursalView("list");
       setEditingSucursalId(null);
       setSucursalForm(emptySucursalForm);
-      setFormMessage("Sucursal guardada correctamente.");
+      setFormMessage("");
     } catch (error) {
       setFormError(error.message || "No fue posible guardar la sucursal.");
     } finally {
       setFormSaving(false);
+    }
+  }
+
+  async function deleteSucursal() {
+    if (!selectedSucursal) return;
+
+    const confirmed = window.confirm(`Eliminar ${selectedSucursal.nombre}? Esta accion no se puede deshacer.`);
+
+    if (!confirmed) return;
+
+    setSucursalActionSaving("delete");
+    setSucursalActionError("");
+
+    try {
+      const response = await fetch(`/api/sucursales/${selectedSucursal.id_sucursal}`, {
+        method: "DELETE"
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        setSucursalActionError(result.message || "No fue posible eliminar la sucursal.");
+        return;
+      }
+
+      await loadSucursales();
+      showSucursalList();
+    } catch (error) {
+      setSucursalActionError(error.message || "No fue posible eliminar la sucursal.");
+    } finally {
+      setSucursalActionSaving("");
+    }
+  }
+
+  function updateMedicamentoForm(field, value) {
+    setMedicamentoForm((currentForm) => ({
+      ...currentForm,
+      [field]: value
+    }));
+  }
+
+  function resetMedicamentoForm() {
+    setEditingMedicamentoId(null);
+    setMedicamentoForm(emptyMedicamentoForm);
+    setMedicamentoFormError("");
+    setMedicamentoFormErrors([]);
+  }
+
+  function showMedicamentoList() {
+    setMedicamentoView("list");
+    setSelectedMedicamentoId(null);
+    setMedicamentoActionError("");
+    resetMedicamentoForm();
+  }
+
+  function showNewMedicamentoForm() {
+    setSelectedMedicamentoId(null);
+    setMedicamentoActionError("");
+    resetMedicamentoForm();
+    setMedicamentoView("form");
+  }
+
+  function showMedicamentoDetail(medicamento) {
+    setSelectedMedicamentoId(medicamento.id_medicamento);
+    setMedicamentoActionError("");
+    resetMedicamentoForm();
+    setMedicamentoView("detail");
+  }
+
+  function cancelMedicamentoForm() {
+    const nextView = editingMedicamentoId && selectedMedicamento ? "detail" : "list";
+    resetMedicamentoForm();
+    setMedicamentoView(nextView);
+  }
+
+  function editMedicamento(medicamento) {
+    setEditingMedicamentoId(medicamento.id_medicamento);
+    setSelectedMedicamentoId(medicamento.id_medicamento);
+    setMedicamentoView("form");
+    setMedicamentoActionError("");
+    setMedicamentoFormError("");
+    setMedicamentoFormErrors([]);
+    setMedicamentoForm({
+      nombre: medicamento.nombre || "",
+      presentacion: medicamento.presentacion || "",
+      unidad: medicamento.unidad || "UNIDAD",
+      requiere_receta: Number(medicamento.requiere_receta) === 1
+    });
+  }
+
+  async function submitMedicamento(event) {
+    event.preventDefault();
+    setMedicamentoFormSaving(true);
+    setMedicamentoFormError("");
+    setMedicamentoFormErrors([]);
+
+    const url = editingMedicamentoId
+      ? `/api/medicamentos/${editingMedicamentoId}`
+      : "/api/medicamentos";
+    const method = editingMedicamentoId ? "PUT" : "POST";
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(medicamentoForm)
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        setMedicamentoFormError(result.message || "No fue posible guardar el medicamento.");
+        setMedicamentoFormErrors(result.errors || []);
+        return;
+      }
+
+      await loadMedicamentos();
+      setSelectedMedicamentoId(null);
+      setMedicamentoView("list");
+      setEditingMedicamentoId(null);
+      setMedicamentoForm(emptyMedicamentoForm);
+    } catch (error) {
+      setMedicamentoFormError(error.message || "No fue posible guardar el medicamento.");
+    } finally {
+      setMedicamentoFormSaving(false);
+    }
+  }
+
+  async function deleteMedicamento() {
+    if (!selectedMedicamento) return;
+
+    const confirmed = window.confirm(
+      `Eliminar ${selectedMedicamento.nombre}? Esta accion no se puede deshacer.`
+    );
+
+    if (!confirmed) return;
+
+    setMedicamentoActionSaving("delete");
+    setMedicamentoActionError("");
+
+    try {
+      const response = await fetch(`/api/medicamentos/${selectedMedicamento.id_medicamento}`, {
+        method: "DELETE"
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        setMedicamentoActionError(result.message || "No fue posible eliminar el medicamento.");
+        return;
+      }
+
+      await loadMedicamentos();
+      showMedicamentoList();
+    } catch (error) {
+      setMedicamentoActionError(error.message || "No fue posible eliminar el medicamento.");
+    } finally {
+      setMedicamentoActionSaving("");
     }
   }
 
@@ -327,6 +624,69 @@ function App() {
               onClick={() => navigateTo("sucursales")}
             >
               Sucursales
+            </a>
+            <a
+              className={`nav-link app-nav-link text-start ${
+                activeView === "medicamentos" ? "active" : "text-white"
+              }`}
+              href="#medicamentos"
+              onClick={() => navigateTo("medicamentos")}
+            >
+              Medicamentos
+            </a>
+            <a
+              className={`nav-link app-nav-link text-start ${
+                activeView === "proveedores-lotes" ? "active" : "text-white"
+              }`}
+              href="#proveedores-lotes"
+              onClick={() => navigateTo("proveedores-lotes")}
+            >
+              Proveedores y lotes
+            </a>
+            <a
+              className={`nav-link app-nav-link text-start ${
+                activeView === "inventario" ? "active" : "text-white"
+              }`}
+              href="#inventario"
+              onClick={() => navigateTo("inventario")}
+            >
+              Inventario
+            </a>
+            <a
+              className={`nav-link app-nav-link text-start ${
+                activeView === "movimientos-inventario" ? "active" : "text-white"
+              }`}
+              href="#movimientos-inventario"
+              onClick={() => navigateTo("movimientos-inventario")}
+            >
+              Movimientos
+            </a>
+            <a
+              className={`nav-link app-nav-link text-start ${
+                activeView === "transferencias" ? "active" : "text-white"
+              }`}
+              href="#transferencias"
+              onClick={() => navigateTo("transferencias")}
+            >
+              Transferencias
+            </a>
+            <a
+              className={`nav-link app-nav-link text-start ${
+                activeView === "clientes" ? "active" : "text-white"
+              }`}
+              href="#clientes"
+              onClick={() => navigateTo("clientes")}
+            >
+              Clientes
+            </a>
+            <a
+              className={`nav-link app-nav-link text-start ${
+                activeView === "pedidos" ? "active" : "text-white"
+              }`}
+              href="#pedidos"
+              onClick={() => navigateTo("pedidos")}
+            >
+              Pedidos
             </a>
             <a className="nav-link app-nav-link text-white text-start" href="#modulos">
               Modulos
@@ -417,7 +777,7 @@ function App() {
                 </div>
               </section>
             </>
-          ) : (
+          ) : activeView === "sucursales" ? (
             <section id="sucursales">
               <header className="d-flex flex-column flex-xl-row justify-content-between gap-3 mb-4">
                 <div>
@@ -427,13 +787,13 @@ function App() {
                     Listado, registro, edicion y consulta de farmacias, stands y puntos en gasolinera.
                   </p>
                 </div>
-                <button className="btn btn-success align-self-start" type="button" onClick={resetSucursalForm}>
+                <button className="btn btn-success align-self-start" type="button" onClick={showNewSucursalForm}>
                   Nueva sucursal
                 </button>
               </header>
 
               <div className="row g-3">
-                <div className="col-12 order-2">
+                <div className={`col-12 ${sucursalView === "list" ? "" : "d-none"}`}>
                   <div className="card h-100">
                     <div className="card-header bg-body d-flex justify-content-between align-items-center gap-3">
                       <div>
@@ -490,7 +850,7 @@ function App() {
                                   <button
                                     className="btn btn-link btn-sm p-0 text-start"
                                     type="button"
-                                    onClick={() => setSelectedSucursalId(sucursal.id_sucursal)}
+                                    onClick={() => showSucursalDetail(sucursal)}
                                   >
                                     {sucursal.nombre}
                                   </button>
@@ -511,16 +871,9 @@ function App() {
                                     <button
                                       className="btn btn-outline-secondary"
                                       type="button"
-                                      onClick={() => setSelectedSucursalId(sucursal.id_sucursal)}
+                                      onClick={() => showSucursalDetail(sucursal)}
                                     >
-                                      Consultar
-                                    </button>
-                                    <button
-                                      className="btn btn-outline-success"
-                                      type="button"
-                                      onClick={() => editSucursal(sucursal)}
-                                    >
-                                      Editar
+                                      Ver detalle
                                     </button>
                                   </div>
                                 </td>
@@ -533,7 +886,7 @@ function App() {
                   </div>
                 </div>
 
-                <div className="col-12 order-1">
+                <div className={`col-12 ${sucursalView === "form" ? "" : "d-none"}`}>
                   <div className="d-grid gap-3">
                     <form className="card" onSubmit={submitSucursal}>
                       <div className="card-header bg-body">
@@ -579,7 +932,7 @@ function App() {
                         </div>
 
                         <div className="row g-3">
-                          <div className="col-12 col-md-6">
+                          <div className="col-12">
                             <label className="form-label" htmlFor="sucursal-tipo">
                               Tipo
                             </label>
@@ -594,25 +947,6 @@ function App() {
                               {sucursalTypes.map((type) => (
                                 <option key={type.value} value={type.value}>
                                   {type.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="col-12 col-md-6">
-                            <label className="form-label" htmlFor="sucursal-estado">
-                              Estado
-                            </label>
-                            <select
-                              className="form-select"
-                              id="sucursal-estado"
-                              name="estado"
-                              required
-                              value={sucursalForm.estado}
-                              onChange={(event) => updateSucursalForm("estado", event.target.value)}
-                            >
-                              {sucursalStates.map((state) => (
-                                <option key={state.value} value={state.value}>
-                                  {state.label}
                                 </option>
                               ))}
                             </select>
@@ -732,7 +1066,7 @@ function App() {
                         )}
                       </div>
                       <div className="card-footer bg-body d-flex justify-content-end gap-2">
-                        <button className="btn btn-outline-secondary" type="button" onClick={resetSucursalForm}>
+                        <button className="btn btn-outline-secondary" type="button" onClick={cancelSucursalForm}>
                           Cancelar
                         </button>
                         <button className="btn btn-success" type="submit" disabled={formSaving}>
@@ -747,13 +1081,48 @@ function App() {
                         </button>
                       </div>
                     </form>
+                  </div>
+                </div>
 
+                <div className={`col-12 ${sucursalView === "detail" ? "" : "d-none"}`}>
+                  <div className="d-grid gap-3">
                     <article className="card">
-                      <div className="card-header bg-body">
-                        <p className="small text-uppercase fw-semibold text-success mb-1">Consulta</p>
-                        <h3 className="h5 mb-0">Detalle de sucursal</h3>
+                      <div className="card-header bg-body d-flex flex-column flex-lg-row justify-content-between gap-3">
+                        <div>
+                          <p className="small text-uppercase fw-semibold text-success mb-1">Consulta</p>
+                          <h3 className="h5 mb-0">Detalle de sucursal</h3>
+                        </div>
+                        <div className="d-flex gap-2">
+                          <button className="btn btn-outline-secondary btn-sm" type="button" onClick={showSucursalList}>
+                            Volver a lista
+                          </button>
+                          {selectedSucursal ? (
+                            <>
+                              <button
+                                className="btn btn-success btn-sm"
+                                type="button"
+                                onClick={() => editSucursal(selectedSucursal)}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                className="btn btn-outline-danger btn-sm"
+                                disabled={Boolean(sucursalActionSaving)}
+                                type="button"
+                                onClick={deleteSucursal}
+                              >
+                                {sucursalActionSaving === "delete" ? "Eliminando" : "Eliminar"}
+                              </button>
+                            </>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="card-body">
+                        {sucursalActionError ? (
+                          <div className="alert alert-danger" role="alert">
+                            {sucursalActionError}
+                          </div>
+                        ) : null}
                         {selectedSucursal ? (
                           <dl className="row mb-0">
                             <dt className="col-sm-5">Codigo</dt>
@@ -790,6 +1159,324 @@ function App() {
                 </div>
               </div>
             </section>
+          ) : activeView === "medicamentos" ? (
+            <section id="medicamentos">
+              <header className="d-flex flex-column flex-xl-row justify-content-between gap-3 mb-4">
+                <div>
+                  <p className="small text-uppercase fw-semibold text-success mb-2">REQ-008 / REQ-024</p>
+                  <h2 className="display-6 fw-semibold mb-1">Medicamentos</h2>
+                  <p className="text-secondary mb-0">
+                    Catalogo maestro para presentaciones, unidades y control de receta.
+                  </p>
+                </div>
+                <button className="btn btn-success align-self-start" type="button" onClick={showNewMedicamentoForm}>
+                  Nuevo medicamento
+                </button>
+              </header>
+
+              <div className="row g-3">
+                <div className={`col-12 ${medicamentoView === "list" ? "" : "d-none"}`}>
+                  <div className="card h-100">
+                    <div className="card-header bg-body d-flex justify-content-between align-items-center gap-3">
+                      <div>
+                        <p className="small text-uppercase fw-semibold text-success mb-1">Listado</p>
+                        <h3 className="h5 mb-0">Catalogo maestro</h3>
+                      </div>
+                      {medicamentosLoading ? (
+                        <span className="spinner-border spinner-border-sm text-success" role="status">
+                          <span className="visually-hidden">Cargando medicamentos</span>
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {medicamentosError ? (
+                      <div className="alert alert-warning m-3" role="alert">
+                        {medicamentosError}
+                      </div>
+                    ) : null}
+
+                    {!medicamentosLoading && medicamentos.length === 0 && !medicamentosError ? (
+                      <div className="card-body">
+                        <div className="alert alert-info mb-0" role="status">
+                          No hay medicamentos registrados. Crea el primer item del catalogo maestro.
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {medicamentos.length > 0 ? (
+                      <div className="table-responsive">
+                        <table className="table table-sm table-hover align-middle mb-0">
+                          <thead>
+                            <tr>
+                              <th scope="col">Codigo</th>
+                              <th scope="col">Nombre</th>
+                              <th scope="col">Presentacion</th>
+                              <th scope="col">Unidad</th>
+                              <th className="text-end" scope="col">Stock</th>
+                              <th className="text-end" scope="col">Lotes</th>
+                              <th scope="col">Receta</th>
+                              <th scope="col">Estado</th>
+                              <th className="text-end" scope="col">
+                                Acciones
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {medicamentos.map((medicamento) => (
+                              <tr
+                                className={
+                                  selectedMedicamentoId === medicamento.id_medicamento ? "table-success" : ""
+                                }
+                                key={medicamento.id_medicamento}
+                              >
+                                <td className="app-tabular">{medicamento.codigo}</td>
+                                <td>
+                                  <button
+                                    className="btn btn-link btn-sm p-0 text-start"
+                                    type="button"
+                                    onClick={() => showMedicamentoDetail(medicamento)}
+                                  >
+                                    {medicamento.nombre}
+                                  </button>
+                                </td>
+                                <td>{medicamento.presentacion}</td>
+                                <td>{medicamento.unidad}</td>
+                                <td className="text-end app-tabular">
+                                  {Number(medicamento.stock_disponible || 0)}
+                                </td>
+                                <td className="text-end app-tabular">
+                                  {Number(medicamento.total_lotes || 0)}
+                                </td>
+                                <td>
+                                  <span
+                                    className={`badge ${
+                                      Number(medicamento.requiere_receta) === 1
+                                        ? "text-bg-warning"
+                                        : "text-bg-secondary"
+                                    }`}
+                                  >
+                                    {Number(medicamento.requiere_receta) === 1 ? "Requiere" : "No requiere"}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className={`badge ${activeStatusBadgeClass(medicamento.estado)}`}>
+                                    {medicamento.estado}
+                                  </span>
+                                </td>
+                                <td className="text-end">
+                                  <button
+                                    className="btn btn-outline-secondary btn-sm"
+                                    type="button"
+                                    onClick={() => showMedicamentoDetail(medicamento)}
+                                  >
+                                    Ver detalle
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className={`col-12 ${medicamentoView === "form" ? "" : "d-none"}`}>
+                  <form className="card" onSubmit={submitMedicamento}>
+                    <div className="card-header bg-body">
+                      <p className="small text-uppercase fw-semibold text-success mb-1">
+                        {editingMedicamentoId ? "Editar" : "Crear"}
+                      </p>
+                      <h3 className="h5 mb-0">
+                        {editingMedicamentoId
+                          ? selectedMedicamento?.codigo || formatMedicamentoId(editingMedicamentoId)
+                          : "Nuevo medicamento"}
+                      </h3>
+                    </div>
+                    <div className="card-body">
+                      {medicamentoFormError ? (
+                        <div className="alert alert-danger" role="alert">
+                          <strong className="d-block">{medicamentoFormError}</strong>
+                          {medicamentoFormErrors.length > 0 ? (
+                            <ul className="mb-0 mt-2">
+                              {medicamentoFormErrors.map((error) => (
+                                <li key={error}>{error}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      <div className="row g-3">
+                        <div className="col-12">
+                          <label className="form-label" htmlFor="medicamento-nombre">
+                            Nombre
+                          </label>
+                          <input
+                            className="form-control"
+                            id="medicamento-nombre"
+                            name="nombre"
+                            required
+                            value={medicamentoForm.nombre}
+                            onChange={(event) => updateMedicamentoForm("nombre", event.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="row g-3 mt-0">
+                        <div className="col-12 col-md-7">
+                          <label className="form-label" htmlFor="medicamento-presentacion">
+                            Presentacion
+                          </label>
+                          <input
+                            className="form-control"
+                            id="medicamento-presentacion"
+                            name="presentacion"
+                            placeholder="Ej. Tableta 500 mg"
+                            required
+                            value={medicamentoForm.presentacion}
+                            onChange={(event) => updateMedicamentoForm("presentacion", event.target.value)}
+                          />
+                        </div>
+                        <div className="col-12 col-md-5">
+                          <label className="form-label" htmlFor="medicamento-unidad">
+                            Unidad
+                          </label>
+                          <select
+                            className="form-select"
+                            id="medicamento-unidad"
+                            name="unidad"
+                            required
+                            value={medicamentoForm.unidad}
+                            onChange={(event) => updateMedicamentoForm("unidad", event.target.value)}
+                          >
+                            {medicamentoUnits.map((unit) => (
+                              <option key={unit} value={unit}>
+                                {unit}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="form-check mt-3">
+                        <input
+                          className="form-check-input"
+                          checked={medicamentoForm.requiere_receta}
+                          id="medicamento-receta"
+                          name="requiere_receta"
+                          type="checkbox"
+                          onChange={(event) => updateMedicamentoForm("requiere_receta", event.target.checked)}
+                        />
+                        <label className="form-check-label" htmlFor="medicamento-receta">
+                          Requiere receta
+                        </label>
+                      </div>
+                    </div>
+                    <div className="card-footer bg-body d-flex justify-content-end gap-2">
+                      <button className="btn btn-outline-secondary" type="button" onClick={cancelMedicamentoForm}>
+                        Cancelar
+                      </button>
+                      <button className="btn btn-success" type="submit" disabled={medicamentoFormSaving}>
+                        {medicamentoFormSaving ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />
+                            Guardando
+                          </>
+                        ) : (
+                          "Guardar"
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <div className={`col-12 ${medicamentoView === "detail" ? "" : "d-none"}`}>
+                  <article className="card">
+                    <div className="card-header bg-body d-flex flex-column flex-lg-row justify-content-between gap-3">
+                      <div>
+                        <p className="small text-uppercase fw-semibold text-success mb-1">Consulta</p>
+                        <h3 className="h5 mb-0">Detalle de medicamento</h3>
+                      </div>
+                      <div className="d-flex gap-2">
+                        <button className="btn btn-outline-secondary btn-sm" type="button" onClick={showMedicamentoList}>
+                          Volver a lista
+                        </button>
+                        {selectedMedicamento ? (
+                          <>
+                            <button
+                              className="btn btn-success btn-sm"
+                              type="button"
+                              onClick={() => editMedicamento(selectedMedicamento)}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              className="btn btn-outline-danger btn-sm"
+                              disabled={Boolean(medicamentoActionSaving)}
+                              type="button"
+                              onClick={deleteMedicamento}
+                            >
+                              {medicamentoActionSaving === "delete" ? "Eliminando" : "Eliminar"}
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="card-body">
+                      {medicamentoActionError ? (
+                        <div className="alert alert-danger" role="alert">
+                          {medicamentoActionError}
+                        </div>
+                      ) : null}
+
+                      {selectedMedicamento ? (
+                        <dl className="row mb-0">
+                          <dt className="col-sm-5">Codigo</dt>
+                          <dd className="col-sm-7 app-tabular">{selectedMedicamento.codigo}</dd>
+                          <dt className="col-sm-5">Nombre</dt>
+                          <dd className="col-sm-7">{selectedMedicamento.nombre}</dd>
+                          <dt className="col-sm-5">Presentacion</dt>
+                          <dd className="col-sm-7">{selectedMedicamento.presentacion}</dd>
+                          <dt className="col-sm-5">Unidad</dt>
+                          <dd className="col-sm-7">{selectedMedicamento.unidad}</dd>
+                          <dt className="col-sm-5">Receta</dt>
+                          <dd className="col-sm-7">
+                            {Number(selectedMedicamento.requiere_receta) === 1 ? "Requiere receta" : "No requiere receta"}
+                          </dd>
+                          <dt className="col-sm-5">Estado</dt>
+                          <dd className="col-sm-7">
+                            <span className={`badge ${activeStatusBadgeClass(selectedMedicamento.estado)}`}>
+                              {selectedMedicamento.estado}
+                            </span>
+                          </dd>
+                          <dt className="col-sm-5">Lotes asociados</dt>
+                          <dd className="col-sm-7 app-tabular">{Number(selectedMedicamento.total_lotes || 0)}</dd>
+                          <dt className="col-sm-5">Stock disponible</dt>
+                          <dd className="col-sm-7 app-tabular">{Number(selectedMedicamento.stock_disponible || 0)}</dd>
+                        </dl>
+                      ) : (
+                        <div className="alert alert-info mb-0" role="status">
+                          Selecciona un medicamento del listado para consultar su detalle.
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </section>
+          ) : activeView === "proveedores-lotes" ? (
+            <TraceabilityView key={`traceability-${routeResetKey}`} />
+          ) : activeView === "inventario" ? (
+            <InventoryView key={`inventory-${routeResetKey}`} />
+          ) : activeView === "movimientos-inventario" ? (
+            <InventoryMovementsView key={`movements-${routeResetKey}`} />
+          ) : activeView === "transferencias" ? (
+            <TransfersView key={`transfers-${routeResetKey}`} />
+          ) : activeView === "clientes" ? (
+            <ClientsView key={`clients-${routeResetKey}`} />
+          ) : (
+            <OrdersView key={`orders-${routeResetKey}`} />
           )}
         </section>
       </div>
