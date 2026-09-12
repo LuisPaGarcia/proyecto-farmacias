@@ -424,3 +424,30 @@ INSERT OR IGNORE INTO rol (nombre_rol, descripcion) VALUES
   ('CAJERO', 'Gestion de ventas, pagos y caja'),
   ('INVENTARIO', 'Gestion de inventario, lotes y transferencias'),
   ('CALL_CENTER', 'Consulta y creacion de pedidos para entrega');
+
+INSERT OR IGNORE INTO usuario (nombre_usuario, password_hash, estado) VALUES
+  ('vendedor', 'vendedor123', 'ACTIVO'),
+  ('vendedor-call-center', 'callcenter123', 'ACTIVO'),
+  ('admin', 'admin123', 'ACTIVO'),
+  ('auditor', 'auditor123', 'ACTIVO');
+
+INSERT OR IGNORE INTO usuario_rol (usuario_id, rol_id)
+SELECT u.id_usuario, r.id_rol
+FROM usuario u
+JOIN rol r ON r.nombre_rol = 'CAJERO'
+WHERE u.nombre_usuario = 'vendedor'
+UNION ALL
+SELECT u.id_usuario, r.id_rol
+FROM usuario u
+JOIN rol r ON r.nombre_rol = 'CALL_CENTER'
+WHERE u.nombre_usuario = 'vendedor-call-center'
+UNION ALL
+SELECT u.id_usuario, r.id_rol
+FROM usuario u
+JOIN rol r ON r.nombre_rol = 'ADMINISTRADOR'
+WHERE u.nombre_usuario = 'admin'
+UNION ALL
+SELECT u.id_usuario, r.id_rol
+FROM usuario u
+JOIN rol r ON r.nombre_rol = 'AUDITOR'
+WHERE u.nombre_usuario = 'auditor';

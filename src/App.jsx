@@ -2,11 +2,20 @@ import { useEffect, useMemo, useState } from "react";
 import departamentos from "../constantes/departamentos.json";
 import municipiosPorDepartamento from "../constantes/municipios.json";
 import ClientsView from "./ClientsView";
+import VistaActivosFijos from "./VistaActivosFijos";
+import VistaAuditoria from "./VistaAuditoria";
+import VistaCaja from "./VistaCaja";
+import VistaEmpleados from "./VistaEmpleados";
+import VistaEntregas from "./VistaEntregas";
+import VistaLogin from "./VistaLogin";
 import InventoryMovementsView from "./InventoryMovementsView";
 import InventoryView from "./InventoryView";
 import OrdersView from "./OrdersView";
+import VistaPlanillas from "./VistaPlanillas";
+import VistaPagos from "./VistaPagos";
 import TraceabilityView from "./TraceabilityView";
 import TransfersView from "./TransfersView";
+import VistaUsuarios from "./VistaUsuarios";
 
 const fallbackSummary = {
   sucursalesActivas: 0,
@@ -35,21 +44,43 @@ const emptyMedicamentoForm = {
 };
 
 const modules = [
-  { label: "Sucursales", status: "Vista completa", detail: "Farmacias y stands" },
-  { label: "Medicamentos", status: "Vista completa", detail: "Catalogo maestro" },
-  { label: "Proveedores y lotes", status: "Vista completa", detail: "Trazabilidad" },
-  { label: "Inventario", status: "Vista completa", detail: "Stock por lote" },
-  { label: "Movimientos", status: "Vista completa", detail: "Auditoria de inventario" },
-  { label: "Transferencias", status: "Vista completa", detail: "Traslados entre sucursales" },
-  { label: "Clientes", status: "Vista completa", detail: "Contacto y entregas" },
-  { label: "Pedidos", status: "Vista completa", detail: "Ventas y call center" },
-  { label: "Caja", status: "Siguiente", detail: "Ingresos y egresos" }
+  { view: "sucursales", label: "Sucursales", status: "Vista completa", detail: "Farmacias y stands" },
+  { view: "medicamentos", label: "Medicamentos", status: "Vista completa", detail: "Catalogo maestro" },
+  { view: "proveedores-lotes", label: "Proveedores y lotes", status: "Vista completa", detail: "Trazabilidad" },
+  { view: "inventario", label: "Inventario", status: "Vista completa", detail: "Stock por lote" },
+  { view: "movimientos-inventario", label: "Movimientos", status: "Vista completa", detail: "Auditoria de inventario" },
+  { view: "transferencias", label: "Transferencias", status: "Vista completa", detail: "Traslados entre sucursales" },
+  { view: "clientes", label: "Clientes", status: "Vista completa", detail: "Contacto y entregas" },
+  { view: "pedidos", label: "Pedidos", status: "Vista completa", detail: "Ventas y call center" },
+  { view: "pagos", label: "Pagos", status: "Vista completa", detail: "Cobros por pedido" },
+  { view: "entregas", label: "Entregas", status: "Vista completa", detail: "Seguimiento de pedidos" },
+  { view: "caja", label: "Caja", status: "Vista completa", detail: "Ingresos y egresos" },
+  { view: "empleados", label: "Empleados", status: "Vista completa", detail: "Personal por sucursal" },
+  { view: "planillas", label: "Planilla", status: "Vista completa", detail: "Periodos y pagos" },
+  { view: "activos-fijos", label: "Activos fijos", status: "Vista completa", detail: "Activos por sucursal" },
+  { view: "usuarios", label: "Usuarios", status: "Vista completa", detail: "Roles y permisos" },
+  { view: "auditoria", label: "Auditoria", status: "Vista completa", detail: "Acciones criticas" }
 ];
 
+const navegacionPrincipal = [
+  { view: "dashboard", label: "Dashboard" },
+  ...modules.map((modulo) => ({ view: modulo.view, label: modulo.label }))
+];
+
+const vistasPorRol = {
+  ADMINISTRADOR: navegacionPrincipal.map((item) => item.view),
+  AUDITOR: ["dashboard", "inventario", "movimientos-inventario", "caja", "activos-fijos", "auditoria"],
+  CAJERO: ["dashboard", "clientes", "pedidos", "pagos", "entregas", "caja", "inventario"],
+  CALL_CENTER: ["dashboard", "clientes", "pedidos", "entregas", "inventario"],
+  INVENTARIO: ["dashboard", "medicamentos", "proveedores-lotes", "inventario", "movimientos-inventario", "transferencias"]
+};
+
+const claveSesion = "farmacias-alejandro-sesion";
+
 const tasks = [
-  "Crear vista de pagos",
-  "Crear endpoints REST para pagos",
-  "Registrar movimientos de inventario para pedidos confirmados"
+  "Registrar acciones criticas en auditoria",
+  "Registrar movimientos de caja automaticos",
+  "Registrar movimientos de inventario automaticos"
 ];
 
 const sucursalTypes = [
@@ -79,10 +110,27 @@ function getHashView() {
     "movimientos-inventario",
     "transferencias",
     "clientes",
-    "pedidos"
+    "pedidos",
+    "pagos",
+    "entregas",
+    "caja",
+    "empleados",
+    "planillas",
+    "activos-fijos",
+    "usuarios",
+    "auditoria"
   ].includes(hash)
     ? hash
     : "dashboard";
+}
+
+function leerSesionGuardada() {
+  try {
+    return JSON.parse(localStorage.getItem(claveSesion)) || null;
+  } catch (error) {
+    localStorage.removeItem(claveSesion);
+    return null;
+  }
 }
 
 function formatCurrency(value) {
@@ -114,6 +162,7 @@ function activeStatusBadgeClass(state) {
 }
 
 function App() {
+  const [usuarioActual, setUsuarioActual] = useState(leerSesionGuardada);
   const [activeView, setActiveView] = useState(getHashView);
   const [routeResetKey, setRouteResetKey] = useState(0);
   const [sucursalView, setSucursalView] = useState("list");
@@ -147,6 +196,22 @@ function App() {
   const [medicamentoActionSaving, setMedicamentoActionSaving] = useState("");
 
   const municipiosDisponibles = municipiosPorDepartamento[sucursalForm.departamento] || [];
+
+  const vistasPermitidas = useMemo(() => {
+    const permitidas = new Set(["dashboard"]);
+
+    (usuarioActual?.roles || []).forEach((rol) => {
+      (vistasPorRol[rol.nombre_rol] || []).forEach((vista) => permitidas.add(vista));
+    });
+
+    return permitidas;
+  }, [usuarioActual]);
+
+  const vistaActual = vistasPermitidas.has(activeView) ? activeView : "dashboard";
+
+  function puedeVerVista(vista) {
+    return vistasPermitidas.has(vista);
+  }
 
   async function loadSucursales() {
     setSucursalesLoading(true);
@@ -193,6 +258,8 @@ function App() {
   }
 
   useEffect(() => {
+    if (!usuarioActual) return undefined;
+
     let isMounted = true;
 
     async function loadDashboard() {
@@ -226,18 +293,19 @@ function App() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [usuarioActual]);
 
   useEffect(() => {
     function handleHashChange() {
       const nextView = getHashView();
-      setActiveView(nextView);
+      const permittedView = puedeVerVista(nextView) ? nextView : "dashboard";
+      setActiveView(permittedView);
 
-      if (nextView === "sucursales") {
+      if (permittedView === "sucursales") {
         setSucursalView("list");
       }
 
-      if (nextView === "medicamentos") {
+      if (permittedView === "medicamentos") {
         setMedicamentoView("list");
       }
     }
@@ -247,7 +315,7 @@ function App() {
     return () => {
       window.removeEventListener("hashchange", handleHashChange);
     };
-  }, []);
+  }, [vistasPermitidas]);
 
   const metrics = useMemo(
     () => [
@@ -303,6 +371,8 @@ function App() {
   );
 
   function navigateTo(view) {
+    if (!puedeVerVista(view)) return;
+
     setActiveView(view);
     window.location.hash = view === "dashboard" ? "dashboard" : view;
     setRouteResetKey((currentKey) => currentKey + 1);
@@ -318,6 +388,20 @@ function App() {
       setSelectedMedicamentoId(null);
       resetMedicamentoForm();
     }
+  }
+
+  function iniciarSesion(usuario) {
+    localStorage.setItem(claveSesion, JSON.stringify(usuario));
+    setUsuarioActual(usuario);
+    setActiveView("dashboard");
+    window.location.hash = "dashboard";
+  }
+
+  function cerrarSesion() {
+    localStorage.removeItem(claveSesion);
+    setUsuarioActual(null);
+    setActiveView("dashboard");
+    window.location.hash = "dashboard";
   }
 
   function updateSucursalForm(field, value) {
@@ -594,6 +678,10 @@ function App() {
     }
   }
 
+  if (!usuarioActual) {
+    return <VistaLogin alIniciarSesion={iniciarSesion} />;
+  }
+
   return (
     <main className="container-fluid bg-body-tertiary">
       <div className="row app-shell">
@@ -606,94 +694,30 @@ function App() {
             <h1 className="h3 mb-0">Control operativo</h1>
           </div>
 
+          <div className="border border-light-subtle rounded-2 p-3 mb-4">
+            <span className="small text-warning d-block">Usuario</span>
+            <strong className="d-block">{usuarioActual.nombre_usuario}</strong>
+            <span className="small d-block mb-2">
+              {(usuarioActual.roles || []).map((rol) => rol.nombre_rol).join(", ")}
+            </span>
+            <button className="btn btn-sm btn-outline-light" type="button" onClick={cerrarSesion}>
+              Salir
+            </button>
+          </div>
+
           <nav className="nav nav-pills flex-column gap-2">
-            <a
-              className={`nav-link app-nav-link text-start ${
-                activeView === "dashboard" ? "active" : "text-white"
-              }`}
-              href="#dashboard"
-              onClick={() => navigateTo("dashboard")}
-            >
-              Dashboard
-            </a>
-            <a
-              className={`nav-link app-nav-link text-start ${
-                activeView === "sucursales" ? "active" : "text-white"
-              }`}
-              href="#sucursales"
-              onClick={() => navigateTo("sucursales")}
-            >
-              Sucursales
-            </a>
-            <a
-              className={`nav-link app-nav-link text-start ${
-                activeView === "medicamentos" ? "active" : "text-white"
-              }`}
-              href="#medicamentos"
-              onClick={() => navigateTo("medicamentos")}
-            >
-              Medicamentos
-            </a>
-            <a
-              className={`nav-link app-nav-link text-start ${
-                activeView === "proveedores-lotes" ? "active" : "text-white"
-              }`}
-              href="#proveedores-lotes"
-              onClick={() => navigateTo("proveedores-lotes")}
-            >
-              Proveedores y lotes
-            </a>
-            <a
-              className={`nav-link app-nav-link text-start ${
-                activeView === "inventario" ? "active" : "text-white"
-              }`}
-              href="#inventario"
-              onClick={() => navigateTo("inventario")}
-            >
-              Inventario
-            </a>
-            <a
-              className={`nav-link app-nav-link text-start ${
-                activeView === "movimientos-inventario" ? "active" : "text-white"
-              }`}
-              href="#movimientos-inventario"
-              onClick={() => navigateTo("movimientos-inventario")}
-            >
-              Movimientos
-            </a>
-            <a
-              className={`nav-link app-nav-link text-start ${
-                activeView === "transferencias" ? "active" : "text-white"
-              }`}
-              href="#transferencias"
-              onClick={() => navigateTo("transferencias")}
-            >
-              Transferencias
-            </a>
-            <a
-              className={`nav-link app-nav-link text-start ${
-                activeView === "clientes" ? "active" : "text-white"
-              }`}
-              href="#clientes"
-              onClick={() => navigateTo("clientes")}
-            >
-              Clientes
-            </a>
-            <a
-              className={`nav-link app-nav-link text-start ${
-                activeView === "pedidos" ? "active" : "text-white"
-              }`}
-              href="#pedidos"
-              onClick={() => navigateTo("pedidos")}
-            >
-              Pedidos
-            </a>
-            <a className="nav-link app-nav-link text-white text-start" href="#modulos">
-              Modulos
-            </a>
-            <a className="nav-link app-nav-link text-white text-start" href="#tareas">
-              Tareas
-            </a>
+            {navegacionPrincipal.filter((item) => puedeVerVista(item.view)).map((item) => (
+              <a
+                className={`nav-link app-nav-link text-start ${
+                  vistaActual === item.view ? "active" : "text-white"
+                }`}
+                href={`#${item.view}`}
+                key={item.view}
+                onClick={() => navigateTo(item.view)}
+              >
+                {item.label}
+              </a>
+            ))}
           </nav>
         </aside>
 
@@ -1475,8 +1499,24 @@ function App() {
             <TransfersView key={`transfers-${routeResetKey}`} />
           ) : activeView === "clientes" ? (
             <ClientsView key={`clients-${routeResetKey}`} />
-          ) : (
+          ) : activeView === "pedidos" ? (
             <OrdersView key={`orders-${routeResetKey}`} />
+          ) : activeView === "pagos" ? (
+            <VistaPagos key={`pagos-${routeResetKey}`} />
+          ) : activeView === "entregas" ? (
+            <VistaEntregas key={`entregas-${routeResetKey}`} />
+          ) : activeView === "caja" ? (
+            <VistaCaja key={`caja-${routeResetKey}`} />
+          ) : activeView === "empleados" ? (
+            <VistaEmpleados key={`empleados-${routeResetKey}`} />
+          ) : activeView === "planillas" ? (
+            <VistaPlanillas key={`planillas-${routeResetKey}`} />
+          ) : activeView === "activos-fijos" ? (
+            <VistaActivosFijos key={`activos-${routeResetKey}`} />
+          ) : activeView === "usuarios" ? (
+            <VistaUsuarios key={`usuarios-${routeResetKey}`} />
+          ) : (
+            <VistaAuditoria key={`auditoria-${routeResetKey}`} />
           )}
         </section>
       </div>

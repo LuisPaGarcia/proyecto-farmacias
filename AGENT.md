@@ -8,6 +8,7 @@ Estas instrucciones aplican a las tareas de implementacion dentro de este reposi
 - Respetar el campo `Orden` de cada requerimiento antes de avanzar a otro modulo.
 - Marcar un requerimiento como completado solo cuando la vista/API funcione y haya sido verificada localmente.
 - Mantener la arquitectura simple: React, Vite, API REST sencilla, SQLite/D1 y Cloudflare Workers.
+- Usar nombres de archivos y variables en espanol para nuevas vistas y codigo de dominio. Mantener sin traducir APIs tecnicas del lenguaje, navegador, React, Bootstrap o librerias (`useState`, `fetch`, `method`, `value`, `form-control`, etc.).
 - Cuando el usuario pida la misma preferencia o ajuste varias veces y se vea como un patron del proyecto, actualizar este `AGENT.md` para convertirlo en una convencion explicita.
 
 ## Diseno y CSS
@@ -91,5 +92,5 @@ Todas las vistas de mantenimiento deben seguir el mismo flujo base:
 
 ## Indicaciones extras
 
-- Nunca crees la sección `Resumen de *` para las tablas con la suma de los registros. Esto no es necesario. 
-- El código de cada entidad debe ser con un prefijo del nombre de la entidad y luego un número. Por ejemplo, para sucursales tenemos SUC-001. Este debe ser creado automáticamente, no esperar a que el usuario lo agregue. 
+- Nunca crees la sección `Resumen de *` para las tablas con la suma de los registros. Esto no es necesario.
+- El código de cada entidad debe ser con un prefijo del nombre de la entidad y luego un número. Por ejemplo, para sucursales tenemos SUC-001. Este debe ser creado automáticamente, no esperar a que el usuario lo agregue.

@@ -21,14 +21,14 @@ Checklist para llevar el control de vistas, APIs y tareas base de la aplicacion 
 - [x] REQ-012 - Orden: 23 - Vista - Crear vista de transferencias entre sucursales con estado y detalle de items.
 - [x] REQ-013 - Orden: 25 - Vista - Crear vista de clientes para datos de contacto y direccion de entrega.
 - [x] REQ-014 - Orden: 29 - Vista - Crear vista de pedidos para ventas presenciales, call center y portal futuro.
-- [ ] REQ-015 - Orden: 32 - Vista - Crear vista de pagos asociados a pedidos.
-- [ ] REQ-016 - Orden: 35 - Vista - Crear vista de entregas para programar, dar seguimiento y cerrar entregas.
-- [ ] REQ-017 - Orden: 38 - Vista - Crear vista de caja y flujo de efectivo por sucursal y periodo.
-- [ ] REQ-018 - Orden: 40 - Vista - Crear vista de empleados por sucursal.
-- [ ] REQ-019 - Orden: 43 - Vista - Crear vista de planilla para periodos, aprobacion y pagos.
-- [ ] REQ-020 - Orden: 46 - Vista - Crear vista de activos fijos por sucursal.
-- [ ] REQ-021 - Orden: 49 - Vista - Crear vista de usuarios, roles y permisos.
-- [ ] REQ-022 - Orden: 52 - Vista - Crear vista de auditoria solo de consulta para revisar acciones criticas.
+- [x] REQ-015 - Orden: 32 - Vista - Crear vista de pagos asociados a pedidos.
+- [x] REQ-016 - Orden: 35 - Vista - Crear vista de entregas para programar, dar seguimiento y cerrar entregas.
+- [x] REQ-017 - Orden: 38 - Vista - Crear vista de caja y flujo de efectivo por sucursal y periodo.
+- [x] REQ-018 - Orden: 40 - Vista - Crear vista de empleados por sucursal.
+- [x] REQ-019 - Orden: 43 - Vista - Crear vista de planilla para periodos, aprobacion y pagos.
+- [x] REQ-020 - Orden: 46 - Vista - Crear vista de activos fijos por sucursal.
+- [x] REQ-021 - Orden: 49 - Vista - Crear vista de usuarios, roles y permisos.
+- [x] REQ-022 - Orden: 52 - Vista - Crear vista de auditoria solo de consulta para revisar acciones criticas.
 
 ## APIs Node.js
 
@@ -41,28 +41,39 @@ Checklist para llevar el control de vistas, APIs y tareas base de la aplicacion 
 - [x] REQ-029 - Orden: 22 - API - Crear endpoints REST para transferencias e items de transferencia.
 - [x] REQ-030 - Orden: 24 - API - Crear endpoints REST para clientes.
 - [x] REQ-031 - Orden: 28 - API - Crear endpoints REST para pedidos e items de pedido.
-- [ ] REQ-032 - Orden: 30 - API - Crear endpoints REST para pagos.
-- [ ] REQ-033 - Orden: 34 - API - Crear endpoints REST para entregas.
-- [ ] REQ-034 - Orden: 37 - API - Crear endpoints REST para movimientos de caja.
-- [ ] REQ-035 - Orden: 39 - API - Crear endpoints REST para empleados.
-- [ ] REQ-036 - Orden: 42 - API - Crear endpoints REST para planilla y detalle de planilla.
-- [ ] REQ-037 - Orden: 45 - API - Crear endpoints REST para activos fijos y eventos de activo.
-- [ ] REQ-038 - Orden: 48 - API - Crear endpoints REST para usuarios, roles y asignacion de roles.
+- [x] REQ-032 - Orden: 30 - API - Crear endpoints REST para pagos.
+- [x] REQ-033 - Orden: 34 - API - Crear endpoints REST para entregas.
+- [x] REQ-034 - Orden: 37 - API - Crear endpoints REST para movimientos de caja.
+- [x] REQ-035 - Orden: 39 - API - Crear endpoints REST para empleados.
+- [x] REQ-036 - Orden: 42 - API - Crear endpoints REST para planilla y detalle de planilla.
+- [x] REQ-037 - Orden: 45 - API - Crear endpoints REST para activos fijos y eventos de activo.
+- [x] REQ-038 - Orden: 48 - API - Crear endpoints REST para usuarios, roles y asignacion de roles.
 - [x] REQ-039 - Orden: 15 - API - Crear endpoint de consulta de inventario disponible por medicamento y sucursal.
 - [x] REQ-040 - Orden: 20 - API - Crear endpoint de consulta de medicamentos proximos a vencer.
-- [ ] REQ-041 - Orden: 36 - API - Crear endpoint de consulta de flujo de caja por sucursal y rango de fechas.
-- [ ] REQ-042 - Orden: 44 - API - Crear endpoint de consulta de valor de activos por sucursal.
+- [x] REQ-041 - Orden: 36 - API - Crear endpoint de consulta de flujo de caja por sucursal y rango de fechas.
+- [x] REQ-042 - Orden: 44 - API - Crear endpoint de consulta de valor de activos por sucursal.
 - [x] REQ-043 - Orden: 27 - API - Crear endpoint de consulta de pedidos por estado, canal y sucursal.
-- [ ] REQ-044 - Orden: 33 - API - Crear endpoint de consulta de entregas pendientes, en ruta y retrasadas.
-- [ ] REQ-045 - Orden: 51 - API - Crear endpoint de consulta de auditoria por usuario, entidad y fecha.
+- [x] REQ-044 - Orden: 33 - API - Crear endpoint de consulta de entregas pendientes, en ruta y retrasadas.
+- [x] REQ-045 - Orden: 51 - API - Crear endpoint de consulta de auditoria por usuario, entidad y fecha.
 
 ## Validaciones y auditoria
 
-- [ ] REQ-046 - Orden: 06 - Validacion - Validar datos obligatorios antes de crear o actualizar registros.
+- [x] REQ-046 - Orden: 06 - Validacion - Validar datos obligatorios antes de crear o actualizar registros.
 - [x] REQ-047 - Orden: 18 - Validacion - Validar stock disponible antes de reservar, vender o transferir medicamentos.
 - [x] REQ-048 - Orden: 21 - Validacion - Validar que una transferencia no tenga la misma sucursal de origen y destino.
-- [ ] REQ-049 - Orden: 26 - Validacion - Validar estados permitidos para pedidos, pagos, entregas, planillas y transferencias.
-- [ ] REQ-050 - Orden: 31 - Auditoria - Registrar movimientos de inventario para toda compra, venta, ajuste, devolucion, vencimiento o transferencia.
-- [ ] REQ-051 - Orden: 41 - Auditoria - Registrar movimientos de caja para pagos confirmados, reembolsos, gastos, planilla, depositos y retiros.
-- [ ] REQ-052 - Orden: 47 - Auditoria - Registrar acciones criticas en la tabla de auditoria.
-- [ ] REQ-053 - Orden: 50 - Auditoria - Evitar que la auditoria sea editable desde pantallas operativas.
+- [x] REQ-049 - Orden: 26 - Validacion - Validar estados permitidos para pedidos, pagos, entregas, planillas y transferencias.
+- [x] REQ-050 - Orden: 31 - Auditoria - Registrar movimientos de inventario para toda compra, venta, ajuste, devolucion, vencimiento o transferencia.
+- [x] REQ-051 - Orden: 41 - Auditoria - Registrar movimientos de caja para pagos confirmados, reembolsos, gastos, planilla, depositos y retiros.
+- [x] REQ-052 - Orden: 47 - Auditoria - Registrar acciones criticas en la tabla de auditoria.
+- [x] REQ-053 - Orden: 50 - Auditoria - Evitar que la auditoria sea editable desde pantallas operativas.
+
+## Calidad de codigo
+
+- [ ] REQ-054 - Orden: 54 - Calidad - Revisar que las entidades usen palabras solo en espanol en variables, funciones y archivos.
+
+## Autenticacion y permisos
+
+- [ ] REQ-055 - Orden: 55 - Autenticacion - Crear vista de login para acceder a la aplicacion antes de mostrar el dashboard.
+- [ ] REQ-056 - Orden: 56 - Autenticacion - Validar credenciales contra la tabla de usuarios en la base de datos y mantener la sesion activa en el frontend.
+- [ ] REQ-057 - Orden: 57 - Usuarios - Crear usuarios base en la base de datos para vendedor, vendedor-call-center y admin; evaluar agregar auditor para consulta separada de auditoria.
+- [ ] REQ-058 - Orden: 58 - Permisos - Mostrar solo las vistas permitidas segun el usuario logeado y su rol.

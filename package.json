@@ -7,8 +7,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "cf:dev": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy",
+    "cf:dev": "npm run build && wrangler dev --port 9999 --local",
+    "deploy": "npm run db:apply:remote && npm run build && wrangler deploy",
     "db:apply:local": "wrangler d1 execute farmacias-alejandro-db --local --file=./schema.sqlite.sql",
     "db:apply:remote": "wrangler d1 execute farmacias-alejandro-db --remote --file=./schema.sqlite.sql",
     "local": "npm run db:apply:local && npm run cf:dev"
